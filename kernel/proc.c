@@ -654,3 +654,47 @@ procdump(void)
     printf("\n");
   }
 }
+
+int
+procinfo(uint64 addr)
+{
+
+   
+   struct proc *op = myproc();
+   struct proc *currnt;
+   int count =0;
+   struct uproc{
+	   int pid;
+	   enum procstate state;
+	   uint64 sz;
+	   int ppid;
+	   char name[16];
+   };
+   struct uproc upr;
+
+
+ 
+   for(currnt = proc; currnt < &proc[NPROC]; currnt++){
+	   if(currnt->state == UNUSED)
+		   continue;
+	   else
+		   count++;
+	   upr.pid = currnt ->pid;
+	   upr.state = currnt ->state;
+	   upr.sz = currnt ->sz;
+	   if(currnt-> parent){
+		   upr.ppid = currnt->parent->pid;
+	   }
+	   else{
+		   upr.ppid =0;
+	   }	   
+ 	   for(int i=0;i< 16;i++){
+		   upr.name[i] = currnt ->name[i];
+	   }
+	   copyout(op->pagetable, addr, (char *)&upr, sizeof(struct uproc));
+	   addr += sizeof(struct uproc);
+  	  
+	}
+   return count;
+
+}
