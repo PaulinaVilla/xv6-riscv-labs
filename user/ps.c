@@ -1,20 +1,25 @@
 #include "kernel/param.h"
 #include "kernel/types.h"
-#include "user/uproc.h"
+#include "kernel/pstat.h"
 #include "user/user.h"
 
 int
 main(int argc, char ** argv)
-{	static char *states[] = {
+{	struct pstat uproc[NPROC];
+	int nprocs;
+	int i;
+	char *state;
+
+
+
+	static char *states[] = {
 	[UNUSED]      "unused",
 	[SLEEPING]    "sleep",
 	[RUNNABLE]    "runnable",
 	[RUNNING]     "run",
 	[ZOMBIE]      "zombie", 
 				}; 
-	struct uproc uproc[NPROC];
-	int nprocs;
-	struct uproc *upr;
+
 
 	/**
 	 *
@@ -23,10 +28,11 @@ main(int argc, char ** argv)
 	if (nprocs<0)
 		exit(-1);
 
-	printf("id\tstate\tsize\tppid\tname\n");
+	printf("id\tstate\tsize\tppid\tname\tcputime\n");
 	
-	for(upr = uproc; upr < &uproc[nprocs];upr++){
-		printf("%d\t%s\t%d\t%d\t%s\n", upr->pid,states[upr->state], upr->size,upr->ppid, upr->name);
+	for(i=0;i<nprocs;i++){
+		state = states[uproc[i].state];
+		printf("%d\t%s\t%l\t%d\t%s\t%d\n", uproc[i].pid,state, uproc[i].size,uproc[i].ppid, uproc[i].name,uproc[i].cputime);
 
 	}
 	exit(0);

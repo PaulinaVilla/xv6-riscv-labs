@@ -5,7 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
-
+#include "pstat.h"
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -119,6 +119,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  p->cputime=0;
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -660,41 +661,68 @@ procinfo(uint64 addr)
 {
 
    
-   struct proc *op = myproc();
-   struct proc *currnt;
-   int count =0;
-   struct uproc{
-	   int pid;
-	   enum procstate state;
-	   uint64 sz;
-	   int ppid;
-	   char name[16];
-   };
-   struct uproc upr;
-
-
- 
-   for(currnt = proc; currnt < &proc[NPROC]; currnt++){
-	   if(currnt->state == UNUSED)
+   struct proc *p;
+   struct proc *thisproc = myproc();
+   struct pstat procinfo;
+   int nprocs =0;
+   for(p=proc;p < &proc[NPROC]; p++){
+	   if(p->state ==UNUSED)
 		   continue;
+	   nprocs++;
+	   procinfo.pid = p->pid;
+	   procinfo.state = p->state;
+	   procinfo.size = p->sz;
+	   procinfo.cputime = p->cputime;
+	   procinfo.arrtime = p->arrtime;
+	   if(p->parent)
+		   procinfo.ppid = (p->parent)->pid;
 	   else
-		   count++;
-	   upr.pid = currnt ->pid;
-	   upr.state = currnt ->state;
-	   upr.sz = currnt ->sz;
-	   if(currnt-> parent){
-		   upr.ppid = currnt->parent->pid;
-	   }
-	   else{
-		   upr.ppid =0;
-	   }	   
- 	   for(int i=0;i< 16;i++){
-		   upr.name[i] = currnt ->name[i];
-	   }
-	   copyout(op->pagetable, addr, (char *)&upr, sizeof(struct uproc));
-	   addr += sizeof(struct uproc);
-  	  
-	}
-   return count;
+		   procinfo.ppid =0;
+	   for(int i =0; i<16;i++)
+		   procinfo.name[i] = p->name[i];
+	   if(copyout(thisproc->pagetable, addr, (char *)&procinfo, sizeof(procinfo)) < 0)
+		   return -1;
+	   addr += sizeof(procinfo);
+   }
+   return nprocs;
 
 }
+int wait2(uint64 addr, uint64 rusage){
+	struct proc *np;
+	int havekids, pid;
+	struct proc *p = myproc();
+	struct rusage ru;
+
+	acquire(&wait_lock);
+	for(;;){
+		havekids =0;
+		for(np=proc;np<&proc[NPROC];np++){
+			if(np->parent==p){
+				acquire(&np->lock);
+				havekids=1;
+				if(np->state==ZOMBIE){
+					ru.cputime=np->cputime;
+					copyout(p->pagetable,rusage,(char *)&ru,sizeof(ru));
+					pid=np->pid;
+					if(addr!=0 && copyout(p->pagetable,addr, (char *)&np->xstate, sizeof(np->xstate))<0){
+						release(&np->lock);
+						release(&wait_lock);
+						return -1;
+					}
+					freeproc(np);
+					release(&np->lock);
+					release(&wait_lock);
+					return pid;
+				}
+				release(&np->lock);
+			}
+		}
+	
+	if(!havekids || p->killed){
+		release(&wait_lock);
+		return -1;
+	}
+	sleep(p, &wait_lock);
+}
+}
+
