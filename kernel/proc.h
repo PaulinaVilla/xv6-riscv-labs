@@ -79,6 +79,26 @@ struct trapframe {
   /* 272 */ uint64 t5;
   /* 280 */ uint64 t6;
 };
+struct mmr_list{
+	struct spinlock lock;
+	int valid;
+};
+struct mmr_node{
+	int listid;
+	struct proc *proc;
+	struct mmr_node *next;
+	struct mmr_node *prev;
+};
+struct mmr{
+	uint64 addr;  //starting address of the region
+	int length;   //length of the region in bytes
+	int prot;     //R/W/X permissionns for pages in the region
+	int flags;     //MAP_ANONYMOUS, MAP_PRIVATE or MAP_SHARED
+	int valid;     //1 if this entry in use 
+	struct file *file; 
+	int fd;
+	struct mmr_node mmr_family;
+};
 
 
 // Per-process state
@@ -93,6 +113,8 @@ struct proc {
   int pid;
   uint cputime;
   uint arrtime;
+  struct mmr mmr[MAX_MMR];
+  uint64 cur_max; 
  
 
   // wait_lock must be held when using this:

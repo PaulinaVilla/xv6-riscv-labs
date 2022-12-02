@@ -1,8 +1,8 @@
+#define NULL 0
 struct stat;
 struct rtcdate;
-struct uproc;
 struct pstat;
-struct rusage;
+
 
 // system calls
 int fork(void);
@@ -27,7 +27,7 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 int getprocs(struct pstat*);
-int wait2(int*, struct rusage*);
+int freepmem(void);
 
 // ulib.c
 int stat(const char*, struct stat*);
@@ -45,3 +45,6 @@ void free(void*);
 int atoi(const char*);
 int memcmp(const void *, const void *, uint);
 void *memcpy(void *, const void *, uint);
+
+int *mmap(void*, uint64,int,int,int,int);
+int munmap(void*, int);
